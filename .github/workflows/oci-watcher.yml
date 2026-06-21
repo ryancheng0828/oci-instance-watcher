@@ -1,0 +1,50 @@
+name: OCI Instance Watcher
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 min (GitHub Actions minimum)
+  workflow_dispatch:          # allow manual trigger
+
+jobs:
+  try-create:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist
+
+      - name: Write OCI private key
+        run: |
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > /tmp/oci_key.pem
+          chmod 600 /tmp/oci_key.pem
+
+      - name: Run watcher (5 attempts × 60s)
+        env:
+          OCI_REGION: ${{ secrets.OCI_REGION }}
+          OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
+          OCI_TENANCY_ID: ${{ secrets.OCI_TENANCY_ID }}
+          OCI_KEY_FINGERPRINT: ${{ secrets.OCI_KEY_FINGERPRINT }}
+          OCI_PRIVATE_KEY_FILENAME: /tmp/oci_key.pem
+          OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
+          OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
+          OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+          OCI_SHAPE: VM.Standard.A1.Flex
+          OCI_OCPUS: 4
+          OCI_MEMORY_IN_GBS: 24
+          OCI_MAX_INSTANCES: 1
+          OCI_AVAILABILITY_DOMAIN: ""
+          CACHE_AVAILABILITY_DOMAINS: 1
+          OCI_BOOT_VOLUME_SIZE_IN_GBS: 200
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "=== Attempt $i ==="
+            php index.php && echo "SUCCESS - instance created!" && exit 0
+            sleep 60
+          done
+          echo "No capacity this round, will retry in 5 min"
