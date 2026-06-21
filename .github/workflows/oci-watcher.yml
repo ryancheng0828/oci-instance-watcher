@@ -42,9 +42,18 @@ jobs:
           CACHE_AVAILABILITY_DOMAINS: 1
           OCI_BOOT_VOLUME_SIZE_IN_GBS: 200
         run: |
+          # Strip newlines from SSH key (common copy-paste issue)
+          export OCI_SSH_PUBLIC_KEY=$(echo "$OCI_SSH_PUBLIC_KEY" | tr -d '\n\r')
+
           for i in 1 2 3 4 5; do
             echo "=== Attempt $i ==="
-            php index.php && echo "SUCCESS - instance created!" && exit 0
-            sleep 60
+            OUTPUT=$(php index.php 2>&1)
+            echo "$OUTPUT"
+            # Success: response contains lifecycleState (instance was created)
+            if echo "$OUTPUT" | grep -q '"lifecycleState"'; then
+              echo "✅ SUCCESS - instance created!"
+              exit 0
+            fi
+            [ $i -lt 5 ] && sleep 60
           done
           echo "No capacity this round, will retry in 5 min"
