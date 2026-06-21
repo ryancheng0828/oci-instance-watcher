@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '*/5 * * * *'   # every 5 min (GitHub Actions minimum)
   workflow_dispatch:          # allow manual trigger
+concurrency:
+    group: oci-watcher
+    cancel-in-progress: true
 
 jobs:
   try-create:
@@ -45,7 +48,7 @@ jobs:
           # Strip newlines from SSH key (common copy-paste issue)
           export OCI_SSH_PUBLIC_KEY=$(echo "$OCI_SSH_PUBLIC_KEY" | tr -d '\n\r')
 
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3 4; do
             echo "=== Attempt $i ==="
             OUTPUT=$(php index.php 2>&1)
             echo "$OUTPUT"
@@ -54,6 +57,6 @@ jobs:
               echo "✅ SUCCESS - instance created!"
               exit 0
             fi
-            [ $i -lt 5 ] && sleep 60
+            [ $i -lt 4 ] && sleep 50
           done
           echo "No capacity this round, will retry in 5 min"
