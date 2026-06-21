@@ -28,6 +28,7 @@ jobs:
           chmod 600 /tmp/oci_key.pem
 
       - name: Run watcher (5 attempts × 60s)
+        id: watcher
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
@@ -55,8 +56,38 @@ jobs:
             # Success: response contains lifecycleState (instance was created)
             if echo "$OUTPUT" | grep -q '"lifecycleState"'; then
               echo "✅ SUCCESS - instance created!"
+              # Save output for email notification (escape newlines)
+              SAFE_OUTPUT=$(echo "$OUTPUT" | head -50 | tr '\n' '|')
+              echo "instance_created=true" >> $GITHUB_OUTPUT
+              echo "instance_output=$SAFE_OUTPUT" >> $GITHUB_OUTPUT
               exit 0
             fi
             [ $i -lt 4 ] && sleep 50
           done
+          echo "instance_created=false" >> $GITHUB_OUTPUT
           echo "No capacity this round, will retry in 5 min"
+
+      - name: Send email notification
+        if: steps.watcher.outputs.instance_created == 'true'
+        uses: dawidd6/action-send-mail@v17
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "✅ OCI ARM VM 搶到了！"
+          to: ryandotcheng@gmail.com
+          from: OCI Watcher <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            🎉 Oracle Cloud ARM A1 VM 建立成功！
+
+            規格：VM.Standard.A1.Flex | 4 OCPU | 24 GB RAM | 200 GB Storage
+            Region：US West
+            時間：${{ github.run_started_at }}
+
+            請前往 OCI Console 指派 Public IP：
+            https://cloud.oracle.com/compute/instances
+
+            --- API 回應（前 50 行）---
+            ${{ steps.watcher.outputs.instance_output }}
