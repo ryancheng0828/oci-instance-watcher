@@ -8,6 +8,10 @@ concurrency:
     group: oci-watcher
     cancel-in-progress: true
 
+concurrency:
+  group: oci-watcher
+  cancel-in-progress: true   # new run cancels old one if still running
+
 jobs:
   try-create:
     runs-on: ubuntu-latest
@@ -27,7 +31,7 @@ jobs:
           echo "${{ secrets.OCI_PRIVATE_KEY }}" > /tmp/oci_key.pem
           chmod 600 /tmp/oci_key.pem
 
-      - name: Run watcher (5 attempts × 60s)
+      - name: Run watcher (4 attempts × 50s)
         id: watcher
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
@@ -39,8 +43,8 @@ jobs:
           OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
           OCI_SHAPE: VM.Standard.A1.Flex
-          OCI_OCPUS: 4
-          OCI_MEMORY_IN_GBS: 24
+          OCI_OCPUS: 2
+          OCI_MEMORY_IN_GBS: 12
           OCI_MAX_INSTANCES: 1
           OCI_AVAILABILITY_DOMAIN: ""
           CACHE_AVAILABILITY_DOMAINS: 1
@@ -82,7 +86,7 @@ jobs:
           body: |
             🎉 Oracle Cloud ARM A1 VM 建立成功！
 
-            規格：VM.Standard.A1.Flex | 4 OCPU | 24 GB RAM | 200 GB Storage
+            規格：VM.Standard.A1.Flex | 2 OCPU | 12 GB RAM | 200 GB Storage
             Region：US West
             時間：${{ github.run_started_at }}
 
